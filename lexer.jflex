@@ -11,6 +11,7 @@ import java.io.InputStreamReader;
 %implements sym
 %public
 %unicode
+%ignorecase
 %line
 %column
 %cup

@@ -10,6 +10,7 @@ import cup.example.Lexer;
 import java.io.IOException;
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.List;
 
 parser code {:
   protected Lexer lexer;
@@ -30,20 +31,39 @@ init with {:
 :};
 scan with {: return lexer.next_token(); :};
 
+terminal		OPEN_TAG, CLOSE_TAG, OPEN_CLOSING_TAG, ATTR_ASSIGN, QUATATION_MARKS, OPEN_SYMBOL,
+		DOCTYPE, RECT, CIRCLE, POLY, DEFAULT, ID, CLASS, STYLE, LANG, TITLE, PUBLIC,
+		XML_LANG, DIR, ONCLICK, ONDBLCLICK, ONMOUSEDOWN, ONMOUSEUP, ONMOUSEMOVE, ONMOUSEOUT,
+		ONKEYPRESS, ONKEYDOWN, ONKEYUP, ACCESSKEY, TABINDEX, ONFOCUS, ONBLUR, BR, SPAN, BDO,
+		MAP, OBJECT, IMG, TT, I, B, BIG, SMALL, EM, STRONG, DFN, CODE, Q, SAMP, KBD, VAR, CITE,
+		ABBR, ACRONYM, SUB, SUP, INPUT, SELECT, TEXTAREA, LABEL, BUTTON, INS, DEL, SCRIPT,
+		NOSCRIPT, A, H1, H2, H3, H4, H5, H6, UL, OL, LI, DL, DT, DD, PRE, HR, BLOCKQUOTE, ADDRESS,
+		P, DIV, FIELDSET, TABLE, FORM, HTML, HEAD, BODY, XMLNS, META, LINK, BASE, PROFILE, HREF,
+		HTTPEQUIV, NAME, CONTENT, SCHEME, CHARSET, HREFLANG, TYPE, REL, REV, MEDIA, XML_SPACE,
+		DATETIME, SHAPE, COORDS, PARAM, DECLARE, CLASSID, CODEBASE, DATA,
+		CODETYPE, ARCHIVE, STANDBY, HEIGHT, WIDTH, USEMAP, VALUE, VALUETYPE, SRC, ALT,
+		LONGDESC, ISMAP, AREA, NOHREF, ACTION, METHOD, ENCTYPE, ONSUBMIT, ONRESET, ACCEPT,
+	 	ACCEPT_CHARSET, FOR, TEXT, PASSWORD, CHECKBOX, RADIO, SUBMIT, RESET, FILE, HIDDEN,
+	 	CHECKED, DISABLED, READONLY, SIZE, MAXLENGTH, ONSELECT, ONCHANGE, MULTIPLE, OPTGROUP,
+		OPTION, ROWS, COLS, LEGEND, VOID, ABOVE, BELOW, HSIDES, LHS, RHS, VSIDES, BOX, BORDER,
+		NONE, GROUPS, ALL, CHAR, CHAROFF, ALIGN, LEFT, CENTER, RIGHT, JUSTIFY, VALIGN, TOP,
+		MIDDLE, BOTTOM, BASELINE, CAPTION, THEAD, TFOOT, TBODY, COLGROUP, COL, TR, TH, TD,
+		SUMMARY, FRAME, RULES, CELLSPACING, CELLPADDING, ROW, ROWGROUP, AXIS, HEADERS,
+		SCOPE, ROWSPAN, COLSPAN;
 /* Terminals (tokens returned by the scanner). */
 terminal            SEMI, PLUS, MINUS, UMINUS, TIMES, LPAREN, RPAREN;
-terminal Integer    NUMBER;        // our scanner provides numbers as integers
-
+terminal Integer	NUMBER;        // our scanner provides numbers as integers
+terminal String  	STRING; 
 /* Non terminals */
 non terminal            expr_list;
-non terminal Integer    expr;      // used to store evaluated subexpressions
+non terminal Integer    expr;
 
 /* Precedences */
 precedence left PLUS, MINUS;
 precedence left TIMES;
 precedence left UMINUS;
 
-/* The grammar rules */
+				/* The grammar rules */
 expr_list ::= expr_list expr:e SEMI         {: System.out.println(e); :}
             | expr:e SEMI                   {: System.out.println(e); :}
             ;
@@ -56,4 +76,3 @@ expr      ::= expr:e1 PLUS  expr:e2         {: RESULT = e1+e2;        :}
              | LPAREN expr:e RPAREN	         {: RESULT = e;           :}
              | NUMBER:n	                     {: RESULT = n;           :}
              ;
-       

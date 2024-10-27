@@ -1,1 +1,15 @@
-27+15;
+<!DOCTYPE>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>Titlu</title>
+</head>
+<body>
+	<h1 style="blue">
+		Test
+	</h1>
+	<p id="7">
+		Text
+	</p>
+	<div class="test">Salut <span> Buna! </span></div>
+</body>
+</html>
