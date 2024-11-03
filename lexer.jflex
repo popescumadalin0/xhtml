@@ -11,7 +11,6 @@ import java.io.InputStreamReader;
 %implements sym
 %public
 %unicode
-%ignorecase
 %line
 %column
 %cup
@@ -86,7 +85,7 @@ ident = ([:jletter:] | "" ) ([:jletterdigit:] | [:jletter:] | "" )*
   "("          { return symbolFactory.newSymbol("LPAREN", LPAREN); }
   ")"          { return symbolFactory.newSymbol("RPAREN", RPAREN); }
   {Number}     { return symbolFactory.newSymbol("NUMBER", NUMBER, Integer.parseInt(yytext())); }
-  		"!DOCTYPE" { return symbolFactory.newSymbol("DOCTYPE", DOCTYPE);}
+  	"!DOCTYPE" { return symbolFactory.newSymbol("DOCTYPE", DOCTYPE);}
 	"a" { return symbolFactory.newSymbol("A", A);}
 	"abbr" { return symbolFactory.newSymbol("ABBR", ABBR);}
 	"above" { return symbolFactory.newSymbol("ABOVE", ABOVE); }
@@ -282,7 +281,6 @@ ident = ([:jletter:] | "" ) ([:jletterdigit:] | [:jletter:] | "" )*
 	"width" { return symbolFactory.newSymbol("WIDTH", WIDTH);}
 	"xml:lang" { return symbolFactory.newSymbol("XML_LANG", XML_LANG);}
 	"xml:space" { return symbolFactory.newSymbol("XML_SPACE", XML_SPACE);}
-	"xmlns" { return symbolFactory.newSymbol("XMLNS", XMLNS);}
   	";"          	{ return symbolFactory.newSymbol("SEMI", SEMI);}
   	"\""			{ return symbolFactory.newSymbol("QUATATION_MARKS", QUATATION_MARKS);}
   	"&"			{ return symbolFactory.newSymbol("OPEN_SYMBOL", OPEN_SYMBOL);}

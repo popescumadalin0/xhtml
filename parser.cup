@@ -14,6 +14,11 @@ import java.util.List;
 
 parser code {:
   protected Lexer lexer;
+  protected Element root;
+	
+  public Element getRootElement() {
+	return root;
+  }
 :}
 
 /* define how to connect to the scanner! */
@@ -38,7 +43,7 @@ terminal		OPEN_TAG, CLOSE_TAG, OPEN_CLOSING_TAG, ATTR_ASSIGN, QUATATION_MARKS, O
 		MAP, OBJECT, IMG, TT, I, B, BIG, SMALL, EM, STRONG, DFN, CODE, Q, SAMP, KBD, VAR, CITE,
 		ABBR, ACRONYM, SUB, SUP, INPUT, SELECT, TEXTAREA, LABEL, BUTTON, INS, DEL, SCRIPT,
 		NOSCRIPT, A, H1, H2, H3, H4, H5, H6, UL, OL, LI, DL, DT, DD, PRE, HR, BLOCKQUOTE, ADDRESS,
-		P, DIV, FIELDSET, TABLE, FORM, HTML, HEAD, BODY, XMLNS, META, LINK, BASE, PROFILE, HREF,
+		P, DIV, FIELDSET, TABLE, FORM, HTML, HEAD, BODY, META, LINK, BASE, PROFILE, HREF,
 		HTTPEQUIV, NAME, CONTENT, SCHEME, CHARSET, HREFLANG, TYPE, REL, REV, MEDIA, XML_SPACE,
 		DATETIME, SHAPE, COORDS, PARAM, DECLARE, CLASSID, CODEBASE, DATA,
 		CODETYPE, ARCHIVE, STANDBY, HEIGHT, WIDTH, USEMAP, VALUE, VALUETYPE, SRC, ALT,
@@ -55,6 +60,27 @@ terminal            SEMI, PLUS, MINUS, UMINUS, TIMES, LPAREN, RPAREN;
 terminal Integer	NUMBER;        // our scanner provides numbers as integers
 terminal String  	STRING; 
 /* Non terminals */
+
+non terminal Element xhtml_document;
+non terminal doctype;
+non terminal html_start; 
+non terminal html_end; 
+non terminal Element html_element;
+non terminal head_start; 
+non terminal head_end;
+non terminal body_start; 
+non terminal body_end;
+non terminal Element head_element;
+non terminal Element body_element;
+non terminal Element attribute_list;
+non terminal Element attribute;
+non terminal Element attribute_content;
+non terminal Element attribute_name;
+non terminal Element tag_open_name;
+non terminal Element tag_close_element;
+non terminal Element tag_open_element;
+non terminal Element tag_element_list;
+non terminal Element tag_inner_text;
 non terminal            expr_list;
 non terminal Integer    expr;
 
@@ -64,6 +90,737 @@ precedence left TIMES;
 precedence left UMINUS;
 
 				/* The grammar rules */
+xhtml_document ::= doctype:doc html_element:he {: 
+				System.out.println("xhtml_document declaration");
+
+				Element rootElement = Element.createElement("Document", he);
+				root = rootElement;
+				RESULT = rootElement;
+				:}
+				;
+
+doctype ::= OPEN_TAG DOCTYPE CLOSE_TAG {: System.out.println("doctype declaration"); :}
+		 ;
+
+html_start ::= OPEN_TAG HTML CLOSE_TAG 
+			{: 
+			System.out.println("html_start declaration");
+			:}
+			;
+			
+html_end ::= OPEN_CLOSING_TAG HTML CLOSE_TAG {: System.out.println("html_end declaration"); :}
+			;
+			
+html_element ::= html_start:hs head_element: ht body_element: bt html_end:he {: 
+				System.out.println("html_element declaration");
+
+				RESULT = Element.createElement("Html", ht, bt);
+				:}
+				;
+				
+head_element ::= head_start:hs tag_element_list:tel head_end: he {:
+				System.out.println("head_content declaration");
+
+				RESULT = Element.createElement("Head", tel);
+				:}
+				;
+
+head_start ::= OPEN_TAG HEAD CLOSE_TAG {:  System.out.println("head_start declaration"); :}
+			;
+			
+head_end ::= OPEN_CLOSING_TAG HEAD CLOSE_TAG {:  System.out.println("head_end declaration"); :}
+			;
+
+body_element ::= body_start:hs tag_element_list:tel body_end: he {:
+				System.out.println("head_content declaration");
+
+				RESULT = Element.createElement("Body", tel);
+				:}
+				;
+				
+body_start ::= OPEN_TAG BODY CLOSE_TAG {:  System.out.println("head_start declaration"); :}
+			;
+			
+body_end ::= OPEN_CLOSING_TAG BODY CLOSE_TAG {:  System.out.println("head_end declaration"); :} 
+			;
+			
+tag_element_list ::= tag_open_element:toe tag_element_list:tel1 tag_close_element:tce tag_element_list:tel2 
+					{:
+						System.out.println("tag_element_list declaration 1");
+						//RESULT = Element.createElement("Tag Element List 1", toe, tel1, tce);
+						RESULT = Element.createElement("tel", toe, tel1, tce);
+						RESULT.addCollateral(tel2);
+					:}
+					|	tag_open_element:toe tag_element_list:tel1 tag_close_element:tce
+					{:
+						System.out.println("tag_element_list declaration 2");
+						//RESULT = Element.createElement("Tag Element List 2", toe, tel1, tce);
+						RESULT = Element.createElement("tel", toe, tel1, tce);
+					:}
+					|	tag_open_element:toe tag_inner_text:tit tag_close_element:tce tag_element_list:tel
+					{:
+						System.out.println("tag_element_list declaration 3");
+						toe.addDescending(tit);
+						//RESULT = Element.createElement("Tag Element List 3", toe, tce);
+						RESULT = Element.createElement("tel", toe, tce);
+						RESULT.addCollateral(tel);
+					:}
+					|	tag_open_element:toe tag_inner_text:tit tag_close_element:tce
+					{:
+						System.out.println("tag_element_list declaration 4");
+						toe.addDescending(tit);
+						//RESULT = Element.createElement("Tag Element List 4", toe, tce);
+						RESULT = Element.createElement("tel", toe, tce);
+					:}
+					|	tag_open_element:toe tag_inner_text:tit tag_element_list:tel tag_close_element:tce
+					{:
+						System.out.println("tag_element_list declaration 4");
+						toe.addDescending(tit);
+						//RESULT = Element.createElement("Tag Element List 4", toe, tce);
+						RESULT = Element.createElement("tel", toe, tce, tel);
+					:}
+					|	tag_open_element:toe tag_close_element:tce
+					{:
+						System.out.println("tag_element_list declaration 5");
+						//RESULT = Element.createElement("Tag Element List 5", toe, tce);
+						RESULT = Element.createElement("tel", toe, tce);
+					:}
+					;
+
+tag_inner_text ::=	STRING:s 	{: 
+				System.out.println("String Text"); 
+				RESULT = Element.createElement(s);
+				:}
+				|	NUMBER:n 	{: 
+				System.out.println("Number Text");
+				RESULT = Element.createElement(Integer.toString(n));
+				:}
+				;
+
+tag_open_element ::= OPEN_TAG tag_open_name:ton attribute_list:al CLOSE_TAG 
+					{: 
+						System.out.println("tag_open_element declaration 1"); 
+						//ton.setDescendingren(List.of(al));
+						RESULT = Element.createElement(ton.getData(), ton, al);
+					:}
+				  |	OPEN_TAG tag_open_name:ton CLOSE_TAG 
+					{: 
+						System.out.println("tag_open_element declaration 2"); 
+						RESULT = Element.createElement(ton.getData(), ton);
+					:}
+					;
+				  		
+tag_close_element ::= OPEN_CLOSING_TAG tag_open_name:tcn CLOSE_TAG 
+{: 
+	System.out.println("tag_close_element declaration"); 
+	//RESULT = Element.createElement("Tag close element", tcn);
+:}
+				   ;				
+
+tag_open_name ::= 	TITLE {: 
+					System.out.println("tag_open_name title");
+					RESULT = Element.createElement("Title");
+					RESULT.setDisplayable(false);
+				:}
+				|	H1	            {: System.out.println("tag_open_name h1"); 
+					RESULT = Element.createElement("H1"); 
+					RESULT.setDisplayable(false);:}
+				|	H2              {: System.out.println("tag_open_name h2"); 
+					RESULT = Element.createElement("H2"); 
+					RESULT.setDisplayable(false);:}
+				|   H3              {: System.out.println("tag_open_name h3"); 
+					RESULT = Element.createElement("H3"); 
+					RESULT.setDisplayable(false);:}
+				|	H4              {: System.out.println("tag_open_name h4");
+					RESULT = Element.createElement("H4"); 
+					RESULT.setDisplayable(false); :}
+				|	H5              {: System.out.println("tag_open_name h5"); 
+					RESULT = Element.createElement("H5"); 
+					RESULT.setDisplayable(false);:}
+				|	H6              {: System.out.println("tag_open_name h6"); 
+					RESULT = Element.createElement("H6"); 
+					RESULT.setDisplayable(false);:}
+				|	DIV             {: System.out.println("tag_open_name div"); 
+					RESULT = Element.createElement("Div"); 
+					RESULT.setDisplayable(false);:}
+				|	BLOCKQUOTE      {: System.out.println("tag_open_name blockquote"); 
+					RESULT = Element.createElement("Blockquote"); 
+					RESULT.setDisplayable(false);:}
+				|	LI              {: System.out.println("tag_open_name li"); 
+					RESULT = Element.createElement("Li"); 
+					RESULT.setDisplayable(false);:}
+				|	OL              {: System.out.println("tag_open_name ol"); 
+					RESULT = Element.createElement("Ol"); 
+					RESULT.setDisplayable(false);:}
+				|	P               {: System.out.println("tag_open_name p"); 
+					RESULT = Element.createElement("P"); 
+					RESULT.setDisplayable(false);:}
+				|	UL              {: System.out.println("tag_open_name ul"); 
+					RESULT = Element.createElement("Ul"); 
+					RESULT.setDisplayable(false);:}
+				|	A               {: System.out.println("tag_open_name a"); 
+					RESULT = Element.createElement("A"); 
+					RESULT.setDisplayable(false);:}
+				|	B               {: System.out.println("tag_open_name b"); 
+					RESULT = Element.createElement("B"); 
+					RESULT.setDisplayable(false);:}
+				|	BR              {: System.out.println("tag_open_name br"); 
+					RESULT = Element.createElement("Br"); 
+					RESULT.setDisplayable(false);:}
+				|	I               {: System.out.println("tag_open_name i"); 
+					RESULT = Element.createElement("I"); 
+					RESULT.setDisplayable(false);:}
+				|	SMALL           {: System.out.println("tag_open_name small"); 
+					RESULT = Element.createElement("Small"); 
+					RESULT.setDisplayable(false);:}
+				|	SPAN            {: System.out.println("tag_open_name span"); 
+					RESULT = Element.createElement("Span"); 
+					RESULT.setDisplayable(false);:}
+				|	STRONG          {: System.out.println("tag_open_name strong"); 
+					RESULT = Element.createElement("Strong"); 
+					RESULT.setDisplayable(false);:}
+				|	SUB             {: System.out.println("tag_open_name sub"); 
+					RESULT = Element.createElement("Sub"); 
+					RESULT.setDisplayable(false);:}
+				|	SUP             {: System.out.println("tag_open_name sup"); 
+					RESULT = Element.createElement("Sup"); 
+					RESULT.setDisplayable(false);:}
+				|	RECT            {: System.out.println("tag_open_name rect"); 
+					RESULT = Element.createElement("Rect"); 
+					RESULT.setDisplayable(false);:}
+				|	CIRCLE            {: System.out.println("tag_open_name circle"); 
+					RESULT = Element.createElement("Circle"); 
+					RESULT.setDisplayable(false);:}
+				|	POLY            {: System.out.println("tag_open_name poly"); 
+					RESULT = Element.createElement("Poly"); 
+					RESULT.setDisplayable(false);:}
+				|	DEFAULT            {: System.out.println("tag_open_name default"); 
+					RESULT = Element.createElement("Default"); 
+					RESULT.setDisplayable(false);:}
+				|	BDO			{: System.out.println("tag_open_name bdo"); 
+					RESULT = Element.createElement("Bdo"); 
+					RESULT.setDisplayable(false);:}
+				|	MAP			{: System.out.println("tag_open_name map"); 
+					RESULT = Element.createElement("Map"); 
+					RESULT.setDisplayable(false);:}
+				|	OBJECT			{: System.out.println("tag_open_name object"); 
+					RESULT = Element.createElement("Object"); 
+					RESULT.setDisplayable(false);:}
+				|	TT			{: System.out.println("tag_open_name tt"); 
+					RESULT = Element.createElement("Tt"); 
+					RESULT.setDisplayable(false);:}
+				|	BIG			{: System.out.println("tag_open_name big"); 
+					RESULT = Element.createElement("Big"); 
+					RESULT.setDisplayable(false);:}
+				|	EM			{: System.out.println("tag_open_name em"); 
+					RESULT = Element.createElement("Em"); 
+					RESULT.setDisplayable(false);:}
+				|	DFN			{: System.out.println("tag_open_name dfn"); 
+					RESULT = Element.createElement("Dfn"); 
+					RESULT.setDisplayable(false);:}
+				|	CODE			{: System.out.println("tag_open_name code"); 
+					RESULT = Element.createElement("Code"); 
+					RESULT.setDisplayable(false);:}
+				|	Q			{: System.out.println("tag_open_name q"); 
+					RESULT = Element.createElement("Q"); 
+					RESULT.setDisplayable(false);:}
+				|	SAMP			{: System.out.println("tag_open_name samp"); 
+					RESULT = Element.createElement("Samp"); 
+					RESULT.setDisplayable(false);:}
+				|	KBD			{: System.out.println("tag_open_name kbd"); 
+					RESULT = Element.createElement("Kbd"); 
+					RESULT.setDisplayable(false);:}
+				|	VAR			{: System.out.println("tag_open_name var"); 
+					RESULT = Element.createElement("Var"); 
+					RESULT.setDisplayable(false);:}
+				|	CITE			{: System.out.println("tag_open_name cite"); 
+					RESULT = Element.createElement("Cite"); 
+					RESULT.setDisplayable(false);:}
+				|	ABBR			{: System.out.println("tag_open_name abbr"); 
+					RESULT = Element.createElement("Abbr"); 
+					RESULT.setDisplayable(false);:}
+				|	ACRONYM			{: System.out.println("tag_open_name acronym"); 
+					RESULT = Element.createElement("Acronym"); 
+					RESULT.setDisplayable(false);:}
+				|	INPUT			{: System.out.println("tag_open_name input"); 
+					RESULT = Element.createElement("Input"); 
+					RESULT.setDisplayable(false);:}
+				|	SELECT			{: System.out.println("tag_open_name select"); 
+					RESULT = Element.createElement("Select"); 
+					RESULT.setDisplayable(false);:}
+				|	TEXTAREA			{: System.out.println("tag_open_name textarea"); 
+					RESULT = Element.createElement("Textarea"); 
+					RESULT.setDisplayable(false);:}
+				|	LABEL			{: System.out.println("tag_open_name label"); 
+					RESULT = Element.createElement("Label"); 
+					RESULT.setDisplayable(false);:}
+				|	BUTTON			{: System.out.println("tag_open_name button"); 
+					RESULT = Element.createElement("Button"); 
+					RESULT.setDisplayable(false);:}
+				|	INS			{: System.out.println("tag_open_name ins"); 
+					RESULT = Element.createElement("Ins"); 
+					RESULT.setDisplayable(false);:}
+				|	DEL			{: System.out.println("tag_open_name del"); 
+					RESULT = Element.createElement("Del"); 
+					RESULT.setDisplayable(false);:}
+				|	SCRIPT			{: System.out.println("tag_open_name script"); 
+					RESULT = Element.createElement("Script"); 
+					RESULT.setDisplayable(false);:}
+				|	DL			{: System.out.println("tag_open_name dl"); 
+					RESULT = Element.createElement("Dl"); 
+					RESULT.setDisplayable(false);:}
+				|	DT			{: System.out.println("tag_open_name dt"); 
+					RESULT = Element.createElement("Dt"); 
+					RESULT.setDisplayable(false);:}
+				|	DD			{: System.out.println("tag_open_name dd"); 
+					RESULT = Element.createElement("Dd"); 
+					RESULT.setDisplayable(false);:}
+				|	PRE			{: System.out.println("tag_open_name pre"); 
+					RESULT = Element.createElement("Pre"); 
+					RESULT.setDisplayable(false);:}
+				|	ADDRESS			{: System.out.println("tag_open_name address"); 
+					RESULT = Element.createElement("Address"); 
+					RESULT.setDisplayable(false);:}
+				|	FIELDSET			{: System.out.println("tag_open_name fieldset"); 
+					RESULT = Element.createElement("Fieldset"); 
+					RESULT.setDisplayable(false);:}
+				|	TABLE			{: System.out.println("tag_open_name table"); 
+					RESULT = Element.createElement("Table"); 
+					RESULT.setDisplayable(false);:}
+				|	FORM			{: System.out.println("tag_open_name form"); 
+					RESULT = Element.createElement("Form"); 
+					RESULT.setDisplayable(false);:}
+				|	PROFILE			{: System.out.println("tag_open_name profile"); 
+					RESULT = Element.createElement("Profile"); 
+					RESULT.setDisplayable(false);:}
+				|	NAME			{: System.out.println("tag_open_name name"); 
+					RESULT = Element.createElement("Name"); 
+					RESULT.setDisplayable(false);:}
+				|	CONTENT			{: System.out.println("tag_open_name content"); 
+					RESULT = Element.createElement("Content"); 
+					RESULT.setDisplayable(false);:}
+				|	SCHEME			{: System.out.println("tag_open_name scheme");
+					RESULT = Element.createElement("Scheme"); 
+					RESULT.setDisplayable(false); :}
+				|	HREFLANG			{: System.out.println("tag_open_name hreflang"); 
+					RESULT = Element.createElement("Hreflang"); 
+					RESULT.setDisplayable(false);:}
+				|	REL			{: System.out.println("tag_open_name rel"); 
+					RESULT = Element.createElement("Rel"); 
+					RESULT.setDisplayable(false);:}
+				|	REV			{: System.out.println("tag_open_name rev"); 
+					RESULT = Element.createElement("Rev"); 
+					RESULT.setDisplayable(false);:}
+				|	MEDIA			{: System.out.println("tag_open_name media"); 
+					RESULT = Element.createElement("Media"); 
+					RESULT.setDisplayable(false);:}
+				|	NOSCRIPT			{: System.out.println("tag_open_name noscript"); 
+					RESULT = Element.createElement("Noscript"); 
+					RESULT.setDisplayable(false);:}
+				|	DATETIME			{: System.out.println("tag_open_name datetime"); 
+					RESULT = Element.createElement("Datetime"); 
+					RESULT.setDisplayable(false);:}
+				|	SHAPE			{: System.out.println("tag_open_name shape"); 
+					RESULT = Element.createElement("Shape"); 
+					RESULT.setDisplayable(false);:}
+				|	COORDS			{: System.out.println("tag_open_name coords"); 
+					RESULT = Element.createElement("Coords"); 
+					RESULT.setDisplayable(false);:}
+				|	PARAM			{: System.out.println("tag_open_name param"); 
+					RESULT = Element.createElement("Param"); 
+					RESULT.setDisplayable(false);:}
+				|	DECLARE			{: System.out.println("tag_open_name declare"); 
+					RESULT = Element.createElement("Declare"); 
+					RESULT.setDisplayable(false);:}
+				|	CLASSID			{: System.out.println("tag_open_name classid"); 
+					RESULT = Element.createElement("Classid"); 
+					RESULT.setDisplayable(false);:}
+				|	CODEBASE			{: System.out.println("tag_open_name codebase"); 
+					RESULT = Element.createElement("Codebase"); 
+					RESULT.setDisplayable(false);:}
+				|	DATA			{: System.out.println("tag_open_name data"); 
+					RESULT = Element.createElement("Data"); 
+					RESULT.setDisplayable(false);:}
+				|	CODETYPE			{: System.out.println("tag_open_name codetype"); 
+					RESULT = Element.createElement("Codetype"); 
+					RESULT.setDisplayable(false);:}
+				|	ARCHIVE			{: System.out.println("tag_open_name archive"); 
+					RESULT = Element.createElement("Archive"); 
+					RESULT.setDisplayable(false);:}
+				|	STANDBY			{: System.out.println("tag_open_name standby"); 
+					RESULT = Element.createElement("Standby"); 
+					RESULT.setDisplayable(false);:}
+				|	VALUE			{: System.out.println("tag_open_name value"); 
+					RESULT = Element.createElement("Value"); 
+					RESULT.setDisplayable(false);:}
+				|	VALUETYPE			{: System.out.println("tag_open_name valuetype"); 
+					RESULT = Element.createElement("Valuetype"); 
+					RESULT.setDisplayable(false);:}
+				|	SRC			{: System.out.println("tag_open_name src"); 
+					RESULT = Element.createElement("Src"); 
+					RESULT.setDisplayable(false);:}
+				|	ALT			{: System.out.println("tag_open_name alt"); 
+					RESULT = Element.createElement("Alt"); 
+					RESULT.setDisplayable(false);:}
+				|	LONGDESC			{: System.out.println("tag_open_name longdesc"); 
+					RESULT = Element.createElement("Longdesc"); 
+					RESULT.setDisplayable(false);:}
+				|	ISMAP			{: System.out.println("tag_open_name ismap"); 
+					RESULT = Element.createElement("Ismap"); 
+					RESULT.setDisplayable(false);:}
+				|	NOHREF			{: System.out.println("tag_open_name nohref"); 
+					RESULT = Element.createElement("Nohref"); 
+					RESULT.setDisplayable(false);:}
+				|	ACTION			{: System.out.println("tag_open_name action"); 
+					RESULT = Element.createElement("Action"); 
+					RESULT.setDisplayable(false);:}
+				|	METHOD			{: System.out.println("tag_open_name method"); 
+					RESULT = Element.createElement("Method"); 
+					RESULT.setDisplayable(false);:}
+				|	ENCTYPE			{: System.out.println("tag_open_name enctype"); 
+					RESULT = Element.createElement("Enctype"); 
+					RESULT.setDisplayable(false);:}
+				|	ACCEPT			{: System.out.println("tag_open_name accept"); 
+					RESULT = Element.createElement("Accept"); 
+					RESULT.setDisplayable(false);:}
+				|	CHARSET			{: System.out.println("tag_open_name charset"); 
+					RESULT = Element.createElement("Charset"); 
+					RESULT.setDisplayable(false);:}
+				|	FOR			{: System.out.println("tag_open_name for"); 
+					RESULT = Element.createElement("For"); 
+					RESULT.setDisplayable(false);:}
+				|	TEXT			{: System.out.println("tag_open_name text"); 
+					RESULT = Element.createElement("Text"); 
+					RESULT.setDisplayable(false);:}
+				|	PASSWORD			{: System.out.println("tag_open_name password"); 
+					RESULT = Element.createElement("Password"); 
+					RESULT.setDisplayable(false);:}
+				|	CHECKBOX			{: System.out.println("tag_open_name checkbox"); 
+					RESULT = Element.createElement("Checkbox"); 
+					RESULT.setDisplayable(false);:}
+				|	RADIO			{: System.out.println("tag_open_name radio"); 
+					RESULT = Element.createElement("Radio"); 
+					RESULT.setDisplayable(false);:}
+				|	SUBMIT			{: System.out.println("tag_open_name submit"); 
+					RESULT = Element.createElement("Submit"); 
+					RESULT.setDisplayable(false);:}
+				|	RESET			{: System.out.println("tag_open_name reset"); 
+					RESULT = Element.createElement("Reset"); 
+					RESULT.setDisplayable(false);:}
+				|	FILE			{: System.out.println("tag_open_name file"); 
+					RESULT = Element.createElement("File");:}
+				|	HIDDEN			{: System.out.println("tag_open_name hidden"); 
+					RESULT = Element.createElement("Hidden"); 
+					RESULT.setDisplayable(false);:}
+				|	CHECKED			{: System.out.println("tag_open_name checked"); 
+					RESULT = Element.createElement("Checked"); 
+					RESULT.setDisplayable(false);:}
+				|	DISABLED			{: System.out.println("tag_open_name disabled"); 
+					RESULT = Element.createElement("Disabled"); 
+					RESULT.setDisplayable(false);:}
+				|	READONLY			{: System.out.println("tag_open_name readonly"); 
+					RESULT = Element.createElement("Readonly"); 
+					RESULT.setDisplayable(false);:}
+				|	SIZE			{: System.out.println("tag_open_name size"); 
+					RESULT = Element.createElement("Size"); 
+					RESULT.setDisplayable(false);:}
+				|	MAXLENGTH			{: System.out.println("tag_open_name maxlength"); 
+					RESULT = Element.createElement("Maxlength"); 
+					RESULT.setDisplayable(false);:}
+				|	ONSELECT			{: System.out.println("tag_open_name onselect"); 
+					RESULT = Element.createElement("Onselect"); 
+					RESULT.setDisplayable(false);:}
+				|	ONCHANGE			{: System.out.println("tag_open_name onchange"); 
+					RESULT = Element.createElement("Onchange"); 
+					RESULT.setDisplayable(false);:}
+				|	MULTIPLE			{: System.out.println("tag_open_name multiple"); 
+					RESULT = Element.createElement("Multiple"); 
+					RESULT.setDisplayable(false);:}
+				|	OPTGROUP			{: System.out.println("tag_open_name optgroup"); 
+					RESULT = Element.createElement("Optgroup"); 
+					RESULT.setDisplayable(false);:}
+				|	OPTION			{: System.out.println("tag_open_name option"); 
+					RESULT = Element.createElement("Option"); 
+					RESULT.setDisplayable(false);:}
+				|	ROWS			{: System.out.println("tag_open_name rows"); 
+					RESULT = Element.createElement("Rows"); 
+					RESULT.setDisplayable(false);:}
+				|	COLS			{: System.out.println("tag_open_name cols"); 
+					RESULT = Element.createElement("Cols"); 
+					RESULT.setDisplayable(false);:}
+				|	LEGEND			{: System.out.println("tag_open_name legend"); 
+					RESULT = Element.createElement("Legend"); 
+					RESULT.setDisplayable(false);:}
+				|	VOID			{: System.out.println("tag_open_name void"); 
+					RESULT = Element.createElement("Void"); 
+					RESULT.setDisplayable(false);:}
+				|	ABOVE			{: System.out.println("tag_open_name above"); 
+					RESULT = Element.createElement("Above"); 
+					RESULT.setDisplayable(false);:}
+				|	BELOW			{: System.out.println("tag_open_name below"); 
+					RESULT = Element.createElement("Below"); 
+					RESULT.setDisplayable(false);:}
+				|	HSIDES			{: System.out.println("tag_open_name hsides"); 
+					RESULT = Element.createElement("Hsides"); 
+					RESULT.setDisplayable(false);:}
+				|	LHS			{: System.out.println("tag_open_name lhs"); 
+					RESULT = Element.createElement("Lhs"); 
+					RESULT.setDisplayable(false);:}
+				|	RHS			{: System.out.println("tag_open_name rhs"); 
+					RESULT = Element.createElement("Rhs"); 
+					RESULT.setDisplayable(false);:}
+				|	VSIDES			{: System.out.println("tag_open_name vsides"); 
+					RESULT = Element.createElement("Vsides"); 
+					RESULT.setDisplayable(false);:}
+				|	BOX			{: System.out.println("tag_open_name box"); 
+					RESULT = Element.createElement("Box"); 
+					RESULT.setDisplayable(false);:}
+				|	BORDER			{: System.out.println("tag_open_name border"); 
+					RESULT = Element.createElement("Border"); 
+					RESULT.setDisplayable(false);:}
+				|	NONE			{: System.out.println("tag_open_name none"); 
+					RESULT = Element.createElement("None"); 
+					RESULT.setDisplayable(false);:}
+				|	GROUPS			{: System.out.println("tag_open_name groups"); 
+					RESULT = Element.createElement("Groups"); 
+					RESULT.setDisplayable(false);:}
+				|	ALL			{: System.out.println("tag_open_name all"); 
+					RESULT = Element.createElement("All"); 
+					RESULT.setDisplayable(false);:}
+				|	CHAR			{: System.out.println("tag_open_name char"); 
+					RESULT = Element.createElement("Char"); 
+					RESULT.setDisplayable(false);:}
+				|	CHAROFF			{: System.out.println("tag_open_name charoff"); 
+					RESULT = Element.createElement("Charoff"); 
+					RESULT.setDisplayable(false);:}
+				|	LEFT			{: System.out.println("tag_open_name left"); 
+					RESULT = Element.createElement("Left"); 
+					RESULT.setDisplayable(false);:}
+				|	CENTER			{: System.out.println("tag_open_name center"); 
+					RESULT = Element.createElement("Center"); 
+					RESULT.setDisplayable(false);:}
+				|	RIGHT			{: System.out.println("tag_open_name right"); 
+					RESULT = Element.createElement("Right"); 
+					RESULT.setDisplayable(false);:}
+				|	JUSTIFY			{: System.out.println("tag_open_name justify"); 
+					RESULT = Element.createElement("Justify"); 
+					RESULT.setDisplayable(false);:}
+				|	VALIGN			{: System.out.println("tag_open_name valign"); 
+					RESULT = Element.createElement("Valign"); 
+					RESULT.setDisplayable(false);:}
+				|	TOP			{: System.out.println("tag_open_name top"); 
+					RESULT = Element.createElement("Top"); 
+					RESULT.setDisplayable(false);:}
+				|	MIDDLE			{: System.out.println("tag_open_name middle"); 
+					RESULT = Element.createElement("Middle"); 
+					RESULT.setDisplayable(false);:}
+				|	BOTTOM			{: System.out.println("tag_open_name bottom"); 
+					RESULT = Element.createElement("Bottom"); 
+					RESULT.setDisplayable(false);:}
+				|	BASELINE			{: System.out.println("tag_open_name baseline"); 
+					RESULT = Element.createElement("Baseline"); 
+					RESULT.setDisplayable(false);:}
+				|	CAPTION			{: System.out.println("tag_open_name caption"); 
+					RESULT = Element.createElement("Caption"); 
+					RESULT.setDisplayable(false);:}
+				|	THEAD			{: System.out.println("tag_open_name thead"); 
+					RESULT = Element.createElement("Thead"); 
+					RESULT.setDisplayable(false);:}
+				|	TFOOT			{: System.out.println("tag_open_name tfoot"); 
+					RESULT = Element.createElement("Tfoot"); 
+					RESULT.setDisplayable(false);:}
+				|	TBODY			{: System.out.println("tag_open_name tbody"); 
+					RESULT = Element.createElement("Tbody"); 
+					RESULT.setDisplayable(false);:}
+				|	COLGROUP			{: System.out.println("tag_open_name colgroup"); 
+					RESULT = Element.createElement("Colgroup"); 
+					RESULT.setDisplayable(false);:}
+				|	COL			{: System.out.println("tag_open_name col"); 
+					RESULT = Element.createElement("Col"); 
+					RESULT.setDisplayable(false);:}
+				|	TR			{: System.out.println("tag_open_name tr"); 
+					RESULT = Element.createElement("Tr");:}
+				|	TH			{: System.out.println("tag_open_name th"); 
+					RESULT = Element.createElement("Th"); 
+					RESULT.setDisplayable(false);:}
+				|	TD			{: System.out.println("tag_open_name td"); 
+					RESULT = Element.createElement("Td"); 
+					RESULT.setDisplayable(false);:}
+				|	SUMMARY			{: System.out.println("tag_open_name summary"); 
+					RESULT = Element.createElement("Summary"); 
+					RESULT.setDisplayable(false);:}
+				|	FRAME			{: System.out.println("tag_open_name frame"); 
+					RESULT = Element.createElement("Frame"); 
+					RESULT.setDisplayable(false);:}
+				|	RULES			{: System.out.println("tag_open_name rules"); 
+					RESULT = Element.createElement("Rules"); 
+					RESULT.setDisplayable(false);:}
+				|	CELLSPACING			{: System.out.println("tag_open_name cellspacing"); 
+					RESULT = Element.createElement("Cellspacing"); 
+					RESULT.setDisplayable(false);:}
+				|	CELLPADDING			{: System.out.println("tag_open_name cellpadding"); 
+					RESULT = Element.createElement("Cellpadding"); 
+					RESULT.setDisplayable(false);:}
+				|	ROW			{: System.out.println("tag_open_name row"); 
+					RESULT = Element.createElement("Row"); 
+					RESULT.setDisplayable(false);:}
+				|	ROWGROUP			{: System.out.println("tag_open_name rowgroup"); 
+					RESULT = Element.createElement("Rowgroup"); 
+					RESULT.setDisplayable(false);:}
+				|	AXIS			{: System.out.println("tag_open_name axis"); 
+					RESULT = Element.createElement("Axis"); 
+					RESULT.setDisplayable(false);:}
+				|	HEADERS			{: System.out.println("tag_open_name headers"); 
+					RESULT = Element.createElement("Headers"); 
+					RESULT.setDisplayable(false);:}
+				|	SCOPE			{: System.out.println("tag_open_name scope"); 
+					RESULT = Element.createElement("Scope"); 
+					RESULT.setDisplayable(false);:}
+				|	ROWSPAN			{: System.out.println("tag_open_name rowspan"); 
+					RESULT = Element.createElement("Rowspan"); 
+					RESULT.setDisplayable(false);:}
+				|	COLSPAN			{: System.out.println("tag_open_name colspan"); 
+					RESULT = Element.createElement("Colspan"); 
+					RESULT.setDisplayable(false);:}
+				|	DIR			{: System.out.println("tag_open_name dir"); 
+					RESULT = Element.createElement("Dir"); 
+					RESULT.setDisplayable(false);:}
+				|	AREA            {: System.out.println("tag_open_name area"); 
+					RESULT = Element.createElement("Area"); 
+					RESULT.setDisplayable(false);:}
+				|	BASE            {: System.out.println("tag_open_name base"); 
+					RESULT = Element.createElement("Base"); 
+					RESULT.setDisplayable(false);:}
+				|	IMG             {: System.out.println("tag_open_name img"); 
+					RESULT = Element.createElement("Img"); 
+					RESULT.setDisplayable(false);:}
+				|	HR              {: System.out.println("tag_open_name hr"); 
+					RESULT = Element.createElement("Hr"); 
+					RESULT.setDisplayable(false);:}
+				|	META            {: System.out.println("tag_open_name meta"); 
+					RESULT = Element.createElement("Meta"); 
+					RESULT.setDisplayable(false);:}
+				|	LINK            {: System.out.println("tag_open_name link"); 
+					RESULT = Element.createElement("Link"); 
+					RESULT.setDisplayable(false);:}
+				;
+				
+							
+attribute_list ::= 	attribute:a attribute_list:al {: 
+						System.out.println("attribute_list declaration 1"); 
+						//RESULT = Element.createElement("attribute_list 1", a, al);
+						RESULT = Element.createElement(null, a, al);
+					:}
+				|	attribute:a	{: 
+						System.out.println("attribute_list declaration");
+						//RESULT = Element.createElement("attribute_list 2", a);
+						RESULT = Element.createElement(null, a);
+					:}			
+				;
+	
+attribute ::=	attribute_name:an ATTR_ASSIGN QUATATION_MARKS attribute_content:ac QUATATION_MARKS 
+				{: 
+					System.out.println("attribute declaration"); 
+					RESULT = Element.createElement(an.getData() + " = \"" + ac.getData() + "\"", an, ac);
+				:}
+			;
+			
+attribute_content ::= STRING:s	{: System.out.println("attribute_content string"); 
+					RESULT = Element.createElement(s); 
+					RESULT.setDisplayable(false);:}
+					| NUMBER:n	{: System.out.println("attribute_content number");  
+					RESULT = Element.createElement(Integer.toString(n)); 
+					RESULT.setDisplayable(false);:}
+					;
+
+attribute_name ::= 	CLASS	{: System.out.println("attribute_name class");  
+					RESULT = Element.createElement("Class"); 
+					RESULT.setDisplayable(false);:}
+				|	ID		{: System.out.println("attribute_name id");  
+					RESULT = Element.createElement("Id"); 
+					RESULT.setDisplayable(false);:}
+				|	ALIGN	{: System.out.println("attribute_name align");  
+					RESULT = Element.createElement("Align"); 
+					RESULT.setDisplayable(false);:}
+				|	STYLE	{: System.out.println("attribute_name style");  
+					RESULT = Element.createElement("Style"); 
+					RESULT.setDisplayable(false);:}
+				|	TABINDEX	{: System.out.println("attribute_name tabindex");  
+					RESULT = Element.createElement("Tabindex"); 
+					RESULT.setDisplayable(false);:}
+				|	ONCLICK	{: System.out.println("attribute_name onclick");  
+					RESULT = Element.createElement("Onclick"); 
+					RESULT.setDisplayable(false);:}
+				|	ONDBLCLICK	{: System.out.println("attribute_name ondblclick");  
+					RESULT = Element.createElement("Ondblclick"); 
+					RESULT.setDisplayable(false);:}
+				|	ONMOUSEDOWN	{: System.out.println("attribute_name onmousedown");  
+					RESULT = Element.createElement("Onmousedown"); 
+					RESULT.setDisplayable(false);:}
+				|	ONMOUSEUP	{: System.out.println("attribute_name onmouseup");  
+					RESULT = Element.createElement("Onmouseup"); 
+					RESULT.setDisplayable(false);:}
+				|	ONMOUSEMOVE	{: System.out.println("attribute_name onmousemove");  
+					RESULT = Element.createElement("Onmousemove"); 
+					RESULT.setDisplayable(false);:}
+				|	ONMOUSEOUT	{: System.out.println("attribute_name onmouseout");  
+					RESULT = Element.createElement("Onmouseout"); 
+					RESULT.setDisplayable(false);:}
+				|	ONKEYPRESS	{: System.out.println("attribute_name onkeypress");  
+					RESULT = Element.createElement("Onkeypress"); 
+					RESULT.setDisplayable(false);:}
+				|	ONKEYDOWN	{: System.out.println("attribute_name onkeydown");  
+					RESULT = Element.createElement("Onkeydown"); 
+					RESULT.setDisplayable(false);:}
+				|	ONKEYUP	{: System.out.println("attribute_name onkeyup");  
+					RESULT = Element.createElement("Onkeyup"); 
+					RESULT.setDisplayable(false);:}
+				|	ACCESSKEY	{: System.out.println("attribute_name accesskey");  
+					RESULT = Element.createElement("Accesskey"); 
+					RESULT.setDisplayable(false);:}
+				|	ONFOCUS	{: System.out.println("attribute_name onfocus");  
+					RESULT = Element.createElement("Onfocus"); 
+					RESULT.setDisplayable(false);:}
+				|	ONBLUR	{: System.out.println("attribute_name onblur");  
+					RESULT = Element.createElement("Onblur"); 
+					RESULT.setDisplayable(false);:}
+				|	HREF	{: System.out.println("attribute_name href");  
+					RESULT = Element.createElement("Href"); 
+					RESULT.setDisplayable(false);:}
+				|	ONSUBMIT	{: System.out.println("attribute_name onsubmit");  
+					RESULT = Element.createElement("Onsubmit"); 
+					RESULT.setDisplayable(false);:}
+				|	ONRESET	{: System.out.println("attribute_name onreset");  
+					RESULT = Element.createElement("Onreset"); 
+					RESULT.setDisplayable(false);:}
+				|	TYPE	{: System.out.println("attribute_name type");  
+					RESULT = Element.createElement("Type"); 
+					RESULT.setDisplayable(false);:}
+				|	HEIGHT	{: System.out.println("attribute_name height");  
+					RESULT = Element.createElement("Height"); 
+					RESULT.setDisplayable(false);:}
+				|	WIDTH	{: System.out.println("attribute_name width");  
+					RESULT = Element.createElement("Width"); 
+					RESULT.setDisplayable(false);:}
+				|	USEMAP	{: System.out.println("attribute_name usemap");  
+					RESULT = Element.createElement("Usemap"); 
+					RESULT.setDisplayable(false);:}
+				| 	HTTPEQUIV {: System.out.println("attribute_name http_equiv");  
+					RESULT = Element.createElement("Http_equiv"); 
+					RESULT.setDisplayable(false);:}
+				| 	XML_LANG {: System.out.println("attribute_name xml_lang");  
+					RESULT = Element.createElement("Xml_lang"); 
+					RESULT.setDisplayable(false);:}
+				| 	ACCEPT_CHARSET {: System.out.println("attribute_name accept_charset");  
+					RESULT = Element.createElement("Accept_charset"); 
+					RESULT.setDisplayable(false);:}
+				| 	XML_SPACE {: System.out.println("attribute_name xml_space");  
+					RESULT = Element.createElement("Xml_space"); 
+					RESULT.setDisplayable(false);:}
+				| 	LANG {: System.out.println("attribute_name lang");  
+					RESULT = Element.createElement("Lang"); 
+					RESULT.setDisplayable(false);:}
+				;
 expr_list ::= expr_list expr:e SEMI         {: System.out.println(e); :}
             | expr:e SEMI                   {: System.out.println(e); :}
             ;
