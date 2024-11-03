@@ -1,15 +1,15 @@
 <!DOCTYPE>
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
 <head>
 	<title>Titlu</title>
 </head>
 <body>
-	<h1 style="blue">
-		Test
+	<h1 style="color:blue">
+		H1Test
 	</h1>
-	<p id="7">
-		Text
+	<p id="testid">
+		P7Test
 	</p>
-	<div class="test">Salut <span> Buna! </span></div>
+	<div class="test">DivTest <span> SpanTest </span></div>
 </body>
 </html>
