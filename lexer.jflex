@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 %public
 %unicode
 %line
+%ignorecase
 %column
 %cup
 %char
