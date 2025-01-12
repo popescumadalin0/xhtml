@@ -1,0 +1,850 @@
+/*
+   Simple +/-/* expression language; 
+   parser evaluates constant expressions on the fly
+*/
+
+package cup.example;
+
+import java_cup.runtime.*;
+import cup.example.Lexer;
+import java.io.IOException;
+import java.io.File;
+import java.io.FileInputStream;
+import java.util.List;
+
+parser code {:
+  protected Lexer lexer;
+  protected MultiPathTree tree;
+	
+  public MultiPathTree getParseTree() {
+	return tree;
+  }
+:}
+/* define how to connect to the scanner! */
+init with {:
+  ComplexSymbolFactory f = new ComplexSymbolFactory();
+  symbolFactory = f;
+  File file = new File("input.txt");
+  FileInputStream fis = null;
+  try {
+    fis = new FileInputStream(file);
+  } catch (IOException e) {
+    e.printStackTrace();
+  } 
+  lexer = new Lexer(f,fis);
+:};
+scan with {: return lexer.next_token(); :};
+
+terminal		OPEN_TAG, CLOSE_TAG, OPEN_CLOSING_TAG, ATTR_ASSIGN, QUATATION_MARKS, //OPEN_SYMBOL,
+		DOCTYPE, RECT, CIRCLE, POLY, DEFAULT, ID, CLASS, STYLE, LANG, TITLE, //PUBLIC,
+		XML_LANG, DIR, ONCLICK, ONDBLCLICK, ONMOUSEDOWN, ONMOUSEUP, ONMOUSEMOVE, ONMOUSEOUT,
+		ONKEYPRESS, ONKEYDOWN, ONKEYUP, ACCESSKEY, TABINDEX, ONFOCUS, ONBLUR, BR, SPAN, BDO,
+		MAP, OBJECT, IMG, TT, I, B, BIG, SMALL, EM, STRONG, DFN, CODE, Q, SAMP, KBD, VAR, CITE,
+		ABBR, ACRONYM, SUB, SUP, INPUT, SELECT, TEXTAREA, LABEL, BUTTON, INS, DEL, SCRIPT,
+		NOSCRIPT, A, H1, H2, H3, H4, H5, H6, UL, OL, LI, DL, DT, DD, PRE, HR, BLOCKQUOTE, ADDRESS,
+		P, DIV, FIELDSET, TABLE, FORM, HTML, HEAD, BODY, XMLNS, META, LINK, BASE, PROFILE, HREF,
+		HTTPEQUIV, NAME, CONTENT, SCHEME, CHARSET, HREFLANG, TYPE, REL, REV, MEDIA, XML_SPACE,
+		DATETIME, SHAPE, COORDS, PARAM, DECLARE, CLASSID, CODEBASE, DATA,
+		CODETYPE, ARCHIVE, STANDBY, HEIGHT, WIDTH, USEMAP, VALUE, VALUETYPE, SRC, ALT,
+		LONGDESC, ISMAP, AREA, NOHREF, ACTION, METHOD, ENCTYPE, ONSUBMIT, ONRESET, ACCEPT,
+	 	ACCEPT_CHARSET, FOR, TEXT, PASSWORD, CHECKBOX, RADIO, SUBMIT, RESET, FILE, HIDDEN,
+	 	CHECKED, DISABLED, READONLY, SIZE, MAXLENGTH, ONSELECT, ONCHANGE, MULTIPLE, OPTGROUP,
+		OPTION, ROWS, COLS, LEGEND, VOID, ABOVE, BELOW, HSIDES, LHS, RHS, VSIDES, BOX, BORDER,
+		NONE, GROUPS, ALL, CHAR, CHAROFF, ALIGN, LEFT, CENTER, RIGHT, JUSTIFY, VALIGN, TOP,
+		MIDDLE, BOTTOM, BASELINE, CAPTION, THEAD, TFOOT, TBODY, COLGROUP, COL, TR, TH, TD,
+		SUMMARY, FRAME, RULES, CELLSPACING, CELLPADDING, ROW, ROWGROUP, AXIS, HEADERS,
+		SCOPE, ROWSPAN, COLSPAN;
+/* Terminals (tokens returned by the scanner). */
+terminal            SEMI, PLUS, MINUS, UMINUS, TIMES, LPAREN, RPAREN;
+terminal Integer	NUMBER;        // our scanner provides numbers as integers
+terminal String  	STRING; 
+
+non terminal MultiPathTree xhtml_document;
+
+non terminal doctype;
+
+non terminal html_start; 
+non terminal html_end; 
+non terminal TreeNode html_element;
+
+non terminal head_start; 
+non terminal head_end;
+non terminal body_start; 
+non terminal body_end;
+non terminal TreeNode head_element;
+non terminal TreeNode body_element;
+
+non terminal TreeNode attribute_list;
+non terminal TreeNode attribute;
+non terminal TreeNode attribute_content;
+non terminal TreeNode attribute_name;
+
+non terminal TreeNode tag_open_name;
+non terminal TreeNode tag_close_element;
+non terminal TreeNode tag_open_element;
+non terminal TreeNode tag_element_list;
+non terminal TreeNode tag_inner_text;
+
+/* Non terminals */
+non terminal            expr_list;
+non terminal Integer    expr;
+
+/* Precedences */
+precedence left PLUS, MINUS;
+precedence left TIMES;
+precedence left UMINUS;
+
+xhtml_document ::= doctype:doc html_element:he {: 
+				System.out.println("xhtml_document declaration");
+
+				TreeNode rootNode = TreeNode.createNode("Document", he);
+				tree = new MultiPathTree(rootNode);
+				RESULT = tree;
+				:}
+				;
+
+doctype ::= OPEN_TAG DOCTYPE CLOSE_TAG {: System.out.println("doctype declaration"); :}
+		 ;
+
+html_start ::= OPEN_TAG HTML XMLNS ATTR_ASSIGN QUATATION_MARKS STRING QUATATION_MARKS CLOSE_TAG 
+				{: 
+				System.out.println("html_start declaration");
+				:}
+				| OPEN_TAG HTML CLOSE_TAG 
+				{: 
+				System.out.println("html_start declaration wihtout XMLNS");
+				:}
+				;
+			
+html_end ::= OPEN_CLOSING_TAG HTML CLOSE_TAG {: System.out.println("html_end declaration"); :}
+			;
+			
+html_element ::= html_start:hs head_element: ht body_element: bt html_end:he {: 
+				System.out.println("html_element declaration");
+
+				RESULT = TreeNode.createNode("Html", ht, bt);
+				:}
+				| html_start:hs body_element: bt html_end:he {: 
+				System.out.println("html_element declaration wihtout head");
+
+				RESULT = TreeNode.createNode("Html", bt);
+				:}
+				;
+				
+head_element ::= head_start:hs tag_element_list:tel head_end: he {:
+				System.out.println("head_content declaration");
+
+				RESULT = TreeNode.createNode("Head", tel);
+				:}
+				;
+
+head_start ::= OPEN_TAG HEAD CLOSE_TAG {:  System.out.println("head_start declaration"); :}
+			;
+			
+head_end ::= OPEN_CLOSING_TAG HEAD CLOSE_TAG {:  System.out.println("head_end declaration"); :}
+			;
+
+body_element ::= body_start:hs tag_element_list:tel body_end: he {:
+				System.out.println("head_content declaration");
+
+				RESULT = TreeNode.createNode("Body", tel);
+				:}
+				;
+				
+body_start ::= OPEN_TAG BODY CLOSE_TAG {:  System.out.println("head_start declaration"); :}
+			;
+			
+body_end ::= OPEN_CLOSING_TAG BODY CLOSE_TAG {:  System.out.println("head_end declaration"); :} 
+			;
+			
+tag_element_list ::= tag_open_element:toe tag_element_list:tel1 tag_close_element:tce tag_element_list:tel2 
+					{:
+						System.out.println("tag_element_list declaration 1");
+						//RESULT = TreeNode.createNode("Tag Element List 1", toe, tel1, tce);
+						RESULT = TreeNode.createNode("tel", toe, tel1, tce);
+						RESULT.addBrother(tel2);
+					:}
+					|	tag_open_element:toe tag_element_list:tel1 tag_close_element:tce
+					{:
+						System.out.println("tag_element_list declaration 2");
+						//RESULT = TreeNode.createNode("Tag Element List 2", toe, tel1, tce);
+						RESULT = TreeNode.createNode("tel", toe, tel1, tce);
+					:}
+					|	tag_open_element:toe tag_inner_text:tit tag_close_element:tce tag_element_list:tel
+					{:
+						System.out.println("tag_element_list declaration 3");
+						toe.addChild(tit);
+						//RESULT = TreeNode.createNode("Tag Element List 3", toe, tce);
+						RESULT = TreeNode.createNode("tel", toe, tce);
+						RESULT.addBrother(tel);
+					:}
+					|	tag_open_element:toe tag_inner_text:tit tag_close_element:tce
+					{:
+						System.out.println("tag_element_list declaration 4");
+						toe.addChild(tit);
+						//RESULT = TreeNode.createNode("Tag Element List 4", toe, tce);
+						RESULT = TreeNode.createNode("tel", toe, tce);
+					:}
+					|	tag_open_element:toe tag_inner_text:tit tag_element_list:tel tag_close_element:tce
+					{:
+						System.out.println("tag_element_list declaration 4");
+						toe.addChild(tit);
+						//RESULT = TreeNode.createNode("Tag Element List 4", toe, tce);
+						RESULT = TreeNode.createNode("tel", toe, tce, tel);
+					:}
+					|	tag_open_element:toe tag_close_element:tce
+					{:
+						System.out.println("tag_element_list declaration 5");
+						//RESULT = TreeNode.createNode("Tag Element List 5", toe, tce);
+						RESULT = TreeNode.createNode("tel", toe, tce);
+					:}
+					;
+
+tag_inner_text ::=	STRING:s 	{: 
+				System.out.println("String Text"); 
+				RESULT = TreeNode.createNode("Text");
+				:}
+				|	NUMBER:n 	{: 
+				System.out.println("Number Text");
+				RESULT = TreeNode.createNode("Text");
+				:}
+				;
+
+tag_open_element ::= OPEN_TAG tag_open_name:ton attribute_list:al CLOSE_TAG 
+					{: 
+						System.out.println("tag_open_element declaration 1"); 
+						//ton.setChildren(List.of(al));
+						RESULT = TreeNode.createNode(ton.getData(), ton, al);
+					:}
+				  |	OPEN_TAG tag_open_name:ton CLOSE_TAG 
+					{: 
+						System.out.println("tag_open_element declaration 2"); 
+						RESULT = TreeNode.createNode(ton.getData(), ton);
+					:}
+					;
+				  		
+tag_close_element ::= OPEN_CLOSING_TAG tag_open_name:tcn CLOSE_TAG 
+{: 
+	System.out.println("tag_close_element declaration"); 
+	//RESULT = TreeNode.createNode("Tag close element", tcn);
+:}
+				   ;				
+
+tag_open_name ::= 	TITLE {: 
+					System.out.println("tag_open_name title");
+					RESULT = TreeNode.createNode("Title");
+					RESULT.setShouldBeDisplayed(false);
+				:}
+				|	H1	            {: System.out.println("tag_open_name h1"); 
+					RESULT = TreeNode.createNode("H1"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	H2              {: System.out.println("tag_open_name h2"); 
+					RESULT = TreeNode.createNode("H2"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|   H3              {: System.out.println("tag_open_name h3"); 
+					RESULT = TreeNode.createNode("H3"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	H4              {: System.out.println("tag_open_name h4");
+					RESULT = TreeNode.createNode("H4"); 
+					RESULT.setShouldBeDisplayed(false); :}
+				|	H5              {: System.out.println("tag_open_name h5"); 
+					RESULT = TreeNode.createNode("H5"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	H6              {: System.out.println("tag_open_name h6"); 
+					RESULT = TreeNode.createNode("H6"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DIV             {: System.out.println("tag_open_name div"); 
+					RESULT = TreeNode.createNode("Div"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BLOCKQUOTE      {: System.out.println("tag_open_name blockquote"); 
+					RESULT = TreeNode.createNode("Blockquote"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	LI              {: System.out.println("tag_open_name li"); 
+					RESULT = TreeNode.createNode("Li"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	OL              {: System.out.println("tag_open_name ol"); 
+					RESULT = TreeNode.createNode("Ol"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	P               {: System.out.println("tag_open_name p"); 
+					RESULT = TreeNode.createNode("P"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	UL              {: System.out.println("tag_open_name ul"); 
+					RESULT = TreeNode.createNode("Ul"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	A               {: System.out.println("tag_open_name a"); 
+					RESULT = TreeNode.createNode("A"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	B               {: System.out.println("tag_open_name b"); 
+					RESULT = TreeNode.createNode("B"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BR              {: System.out.println("tag_open_name br"); 
+					RESULT = TreeNode.createNode("Br"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	I               {: System.out.println("tag_open_name i"); 
+					RESULT = TreeNode.createNode("I"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SMALL           {: System.out.println("tag_open_name small"); 
+					RESULT = TreeNode.createNode("Small"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SPAN            {: System.out.println("tag_open_name span"); 
+					RESULT = TreeNode.createNode("Span"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	STRONG          {: System.out.println("tag_open_name strong"); 
+					RESULT = TreeNode.createNode("Strong"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SUB             {: System.out.println("tag_open_name sub"); 
+					RESULT = TreeNode.createNode("Sub"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SUP             {: System.out.println("tag_open_name sup"); 
+					RESULT = TreeNode.createNode("Sup"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	RECT            {: System.out.println("tag_open_name rect"); 
+					RESULT = TreeNode.createNode("Rect"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CIRCLE            {: System.out.println("tag_open_name circle"); 
+					RESULT = TreeNode.createNode("Circle"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	POLY            {: System.out.println("tag_open_name poly"); 
+					RESULT = TreeNode.createNode("Poly"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DEFAULT            {: System.out.println("tag_open_name default"); 
+					RESULT = TreeNode.createNode("Default"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BDO			{: System.out.println("tag_open_name bdo"); 
+					RESULT = TreeNode.createNode("Bdo"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	MAP			{: System.out.println("tag_open_name map"); 
+					RESULT = TreeNode.createNode("Map"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	OBJECT			{: System.out.println("tag_open_name object"); 
+					RESULT = TreeNode.createNode("Object"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TT			{: System.out.println("tag_open_name tt"); 
+					RESULT = TreeNode.createNode("Tt"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BIG			{: System.out.println("tag_open_name big"); 
+					RESULT = TreeNode.createNode("Big"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	EM			{: System.out.println("tag_open_name em"); 
+					RESULT = TreeNode.createNode("Em"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DFN			{: System.out.println("tag_open_name dfn"); 
+					RESULT = TreeNode.createNode("Dfn"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CODE			{: System.out.println("tag_open_name code"); 
+					RESULT = TreeNode.createNode("Code"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	Q			{: System.out.println("tag_open_name q"); 
+					RESULT = TreeNode.createNode("Q"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SAMP			{: System.out.println("tag_open_name samp"); 
+					RESULT = TreeNode.createNode("Samp"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	KBD			{: System.out.println("tag_open_name kbd"); 
+					RESULT = TreeNode.createNode("Kbd"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	VAR			{: System.out.println("tag_open_name var"); 
+					RESULT = TreeNode.createNode("Var"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CITE			{: System.out.println("tag_open_name cite"); 
+					RESULT = TreeNode.createNode("Cite"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ABBR			{: System.out.println("tag_open_name abbr"); 
+					RESULT = TreeNode.createNode("Abbr"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ACRONYM			{: System.out.println("tag_open_name acronym"); 
+					RESULT = TreeNode.createNode("Acronym"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	INPUT			{: System.out.println("tag_open_name input"); 
+					RESULT = TreeNode.createNode("Input"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SELECT			{: System.out.println("tag_open_name select"); 
+					RESULT = TreeNode.createNode("Select"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TEXTAREA			{: System.out.println("tag_open_name textarea"); 
+					RESULT = TreeNode.createNode("Textarea"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	LABEL			{: System.out.println("tag_open_name label"); 
+					RESULT = TreeNode.createNode("Label"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BUTTON			{: System.out.println("tag_open_name button"); 
+					RESULT = TreeNode.createNode("Button"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	INS			{: System.out.println("tag_open_name ins"); 
+					RESULT = TreeNode.createNode("Ins"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DEL			{: System.out.println("tag_open_name del"); 
+					RESULT = TreeNode.createNode("Del"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SCRIPT			{: System.out.println("tag_open_name script"); 
+					RESULT = TreeNode.createNode("Script"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DL			{: System.out.println("tag_open_name dl"); 
+					RESULT = TreeNode.createNode("Dl"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DT			{: System.out.println("tag_open_name dt"); 
+					RESULT = TreeNode.createNode("Dt"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DD			{: System.out.println("tag_open_name dd"); 
+					RESULT = TreeNode.createNode("Dd"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	PRE			{: System.out.println("tag_open_name pre"); 
+					RESULT = TreeNode.createNode("Pre"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ADDRESS			{: System.out.println("tag_open_name address"); 
+					RESULT = TreeNode.createNode("Address"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	FIELDSET			{: System.out.println("tag_open_name fieldset"); 
+					RESULT = TreeNode.createNode("Fieldset"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TABLE			{: System.out.println("tag_open_name table"); 
+					RESULT = TreeNode.createNode("Table"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	FORM			{: System.out.println("tag_open_name form"); 
+					RESULT = TreeNode.createNode("Form"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	PROFILE			{: System.out.println("tag_open_name profile"); 
+					RESULT = TreeNode.createNode("Profile"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	NAME			{: System.out.println("tag_open_name name"); 
+					RESULT = TreeNode.createNode("Name"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CONTENT			{: System.out.println("tag_open_name content"); 
+					RESULT = TreeNode.createNode("Content"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SCHEME			{: System.out.println("tag_open_name scheme");
+					RESULT = TreeNode.createNode("Scheme"); 
+					RESULT.setShouldBeDisplayed(false); :}
+				|	HREFLANG			{: System.out.println("tag_open_name hreflang"); 
+					RESULT = TreeNode.createNode("Hreflang"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	REL			{: System.out.println("tag_open_name rel"); 
+					RESULT = TreeNode.createNode("Rel"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	REV			{: System.out.println("tag_open_name rev"); 
+					RESULT = TreeNode.createNode("Rev"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	MEDIA			{: System.out.println("tag_open_name media"); 
+					RESULT = TreeNode.createNode("Media"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	NOSCRIPT			{: System.out.println("tag_open_name noscript"); 
+					RESULT = TreeNode.createNode("Noscript"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DATETIME			{: System.out.println("tag_open_name datetime"); 
+					RESULT = TreeNode.createNode("Datetime"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SHAPE			{: System.out.println("tag_open_name shape"); 
+					RESULT = TreeNode.createNode("Shape"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	COORDS			{: System.out.println("tag_open_name coords"); 
+					RESULT = TreeNode.createNode("Coords"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	PARAM			{: System.out.println("tag_open_name param"); 
+					RESULT = TreeNode.createNode("Param"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DECLARE			{: System.out.println("tag_open_name declare"); 
+					RESULT = TreeNode.createNode("Declare"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CLASSID			{: System.out.println("tag_open_name classid"); 
+					RESULT = TreeNode.createNode("Classid"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CODEBASE			{: System.out.println("tag_open_name codebase"); 
+					RESULT = TreeNode.createNode("Codebase"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DATA			{: System.out.println("tag_open_name data"); 
+					RESULT = TreeNode.createNode("Data"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CODETYPE			{: System.out.println("tag_open_name codetype"); 
+					RESULT = TreeNode.createNode("Codetype"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ARCHIVE			{: System.out.println("tag_open_name archive"); 
+					RESULT = TreeNode.createNode("Archive"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	STANDBY			{: System.out.println("tag_open_name standby"); 
+					RESULT = TreeNode.createNode("Standby"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	VALUE			{: System.out.println("tag_open_name value"); 
+					RESULT = TreeNode.createNode("Value"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	VALUETYPE			{: System.out.println("tag_open_name valuetype"); 
+					RESULT = TreeNode.createNode("Valuetype"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SRC			{: System.out.println("tag_open_name src"); 
+					RESULT = TreeNode.createNode("Src"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ALT			{: System.out.println("tag_open_name alt"); 
+					RESULT = TreeNode.createNode("Alt"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	LONGDESC			{: System.out.println("tag_open_name longdesc"); 
+					RESULT = TreeNode.createNode("Longdesc"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ISMAP			{: System.out.println("tag_open_name ismap"); 
+					RESULT = TreeNode.createNode("Ismap"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	NOHREF			{: System.out.println("tag_open_name nohref"); 
+					RESULT = TreeNode.createNode("Nohref"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ACTION			{: System.out.println("tag_open_name action"); 
+					RESULT = TreeNode.createNode("Action"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	METHOD			{: System.out.println("tag_open_name method"); 
+					RESULT = TreeNode.createNode("Method"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ENCTYPE			{: System.out.println("tag_open_name enctype"); 
+					RESULT = TreeNode.createNode("Enctype"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ACCEPT			{: System.out.println("tag_open_name accept"); 
+					RESULT = TreeNode.createNode("Accept"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CHARSET			{: System.out.println("tag_open_name charset"); 
+					RESULT = TreeNode.createNode("Charset"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	FOR			{: System.out.println("tag_open_name for"); 
+					RESULT = TreeNode.createNode("For"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TEXT			{: System.out.println("tag_open_name text"); 
+					RESULT = TreeNode.createNode("Text"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	PASSWORD			{: System.out.println("tag_open_name password"); 
+					RESULT = TreeNode.createNode("Password"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CHECKBOX			{: System.out.println("tag_open_name checkbox"); 
+					RESULT = TreeNode.createNode("Checkbox"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	RADIO			{: System.out.println("tag_open_name radio"); 
+					RESULT = TreeNode.createNode("Radio"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SUBMIT			{: System.out.println("tag_open_name submit"); 
+					RESULT = TreeNode.createNode("Submit"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	RESET			{: System.out.println("tag_open_name reset"); 
+					RESULT = TreeNode.createNode("Reset"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	FILE			{: System.out.println("tag_open_name file"); 
+					RESULT = TreeNode.createNode("File");:}
+				|	HIDDEN			{: System.out.println("tag_open_name hidden"); 
+					RESULT = TreeNode.createNode("Hidden"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CHECKED			{: System.out.println("tag_open_name checked"); 
+					RESULT = TreeNode.createNode("Checked"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DISABLED			{: System.out.println("tag_open_name disabled"); 
+					RESULT = TreeNode.createNode("Disabled"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	READONLY			{: System.out.println("tag_open_name readonly"); 
+					RESULT = TreeNode.createNode("Readonly"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SIZE			{: System.out.println("tag_open_name size"); 
+					RESULT = TreeNode.createNode("Size"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	MAXLENGTH			{: System.out.println("tag_open_name maxlength"); 
+					RESULT = TreeNode.createNode("Maxlength"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONSELECT			{: System.out.println("tag_open_name onselect"); 
+					RESULT = TreeNode.createNode("Onselect"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONCHANGE			{: System.out.println("tag_open_name onchange"); 
+					RESULT = TreeNode.createNode("Onchange"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	MULTIPLE			{: System.out.println("tag_open_name multiple"); 
+					RESULT = TreeNode.createNode("Multiple"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	OPTGROUP			{: System.out.println("tag_open_name optgroup"); 
+					RESULT = TreeNode.createNode("Optgroup"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	OPTION			{: System.out.println("tag_open_name option"); 
+					RESULT = TreeNode.createNode("Option"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ROWS			{: System.out.println("tag_open_name rows"); 
+					RESULT = TreeNode.createNode("Rows"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	COLS			{: System.out.println("tag_open_name cols"); 
+					RESULT = TreeNode.createNode("Cols"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	LEGEND			{: System.out.println("tag_open_name legend"); 
+					RESULT = TreeNode.createNode("Legend"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	VOID			{: System.out.println("tag_open_name void"); 
+					RESULT = TreeNode.createNode("Void"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ABOVE			{: System.out.println("tag_open_name above"); 
+					RESULT = TreeNode.createNode("Above"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BELOW			{: System.out.println("tag_open_name below"); 
+					RESULT = TreeNode.createNode("Below"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	HSIDES			{: System.out.println("tag_open_name hsides"); 
+					RESULT = TreeNode.createNode("Hsides"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	LHS			{: System.out.println("tag_open_name lhs"); 
+					RESULT = TreeNode.createNode("Lhs"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	RHS			{: System.out.println("tag_open_name rhs"); 
+					RESULT = TreeNode.createNode("Rhs"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	VSIDES			{: System.out.println("tag_open_name vsides"); 
+					RESULT = TreeNode.createNode("Vsides"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BOX			{: System.out.println("tag_open_name box"); 
+					RESULT = TreeNode.createNode("Box"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BORDER			{: System.out.println("tag_open_name border"); 
+					RESULT = TreeNode.createNode("Border"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	NONE			{: System.out.println("tag_open_name none"); 
+					RESULT = TreeNode.createNode("None"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	GROUPS			{: System.out.println("tag_open_name groups"); 
+					RESULT = TreeNode.createNode("Groups"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ALL			{: System.out.println("tag_open_name all"); 
+					RESULT = TreeNode.createNode("All"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CHAR			{: System.out.println("tag_open_name char"); 
+					RESULT = TreeNode.createNode("Char"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CHAROFF			{: System.out.println("tag_open_name charoff"); 
+					RESULT = TreeNode.createNode("Charoff"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	LEFT			{: System.out.println("tag_open_name left"); 
+					RESULT = TreeNode.createNode("Left"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CENTER			{: System.out.println("tag_open_name center"); 
+					RESULT = TreeNode.createNode("Center"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	RIGHT			{: System.out.println("tag_open_name right"); 
+					RESULT = TreeNode.createNode("Right"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	JUSTIFY			{: System.out.println("tag_open_name justify"); 
+					RESULT = TreeNode.createNode("Justify"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	VALIGN			{: System.out.println("tag_open_name valign"); 
+					RESULT = TreeNode.createNode("Valign"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TOP			{: System.out.println("tag_open_name top"); 
+					RESULT = TreeNode.createNode("Top"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	MIDDLE			{: System.out.println("tag_open_name middle"); 
+					RESULT = TreeNode.createNode("Middle"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BOTTOM			{: System.out.println("tag_open_name bottom"); 
+					RESULT = TreeNode.createNode("Bottom"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BASELINE			{: System.out.println("tag_open_name baseline"); 
+					RESULT = TreeNode.createNode("Baseline"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CAPTION			{: System.out.println("tag_open_name caption"); 
+					RESULT = TreeNode.createNode("Caption"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	THEAD			{: System.out.println("tag_open_name thead"); 
+					RESULT = TreeNode.createNode("Thead"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TFOOT			{: System.out.println("tag_open_name tfoot"); 
+					RESULT = TreeNode.createNode("Tfoot"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TBODY			{: System.out.println("tag_open_name tbody"); 
+					RESULT = TreeNode.createNode("Tbody"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	COLGROUP			{: System.out.println("tag_open_name colgroup"); 
+					RESULT = TreeNode.createNode("Colgroup"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	COL			{: System.out.println("tag_open_name col"); 
+					RESULT = TreeNode.createNode("Col"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TR			{: System.out.println("tag_open_name tr"); 
+					RESULT = TreeNode.createNode("Tr");:}
+				|	TH			{: System.out.println("tag_open_name th"); 
+					RESULT = TreeNode.createNode("Th"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TD			{: System.out.println("tag_open_name td"); 
+					RESULT = TreeNode.createNode("Td"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SUMMARY			{: System.out.println("tag_open_name summary"); 
+					RESULT = TreeNode.createNode("Summary"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	FRAME			{: System.out.println("tag_open_name frame"); 
+					RESULT = TreeNode.createNode("Frame"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	RULES			{: System.out.println("tag_open_name rules"); 
+					RESULT = TreeNode.createNode("Rules"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CELLSPACING			{: System.out.println("tag_open_name cellspacing"); 
+					RESULT = TreeNode.createNode("Cellspacing"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	CELLPADDING			{: System.out.println("tag_open_name cellpadding"); 
+					RESULT = TreeNode.createNode("Cellpadding"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ROW			{: System.out.println("tag_open_name row"); 
+					RESULT = TreeNode.createNode("Row"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ROWGROUP			{: System.out.println("tag_open_name rowgroup"); 
+					RESULT = TreeNode.createNode("Rowgroup"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	AXIS			{: System.out.println("tag_open_name axis"); 
+					RESULT = TreeNode.createNode("Axis"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	HEADERS			{: System.out.println("tag_open_name headers"); 
+					RESULT = TreeNode.createNode("Headers"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	SCOPE			{: System.out.println("tag_open_name scope"); 
+					RESULT = TreeNode.createNode("Scope"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ROWSPAN			{: System.out.println("tag_open_name rowspan"); 
+					RESULT = TreeNode.createNode("Rowspan"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	COLSPAN			{: System.out.println("tag_open_name colspan"); 
+					RESULT = TreeNode.createNode("Colspan"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	DIR			{: System.out.println("tag_open_name dir"); 
+					RESULT = TreeNode.createNode("Dir"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	AREA            {: System.out.println("tag_open_name area"); 
+					RESULT = TreeNode.createNode("Area"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	BASE            {: System.out.println("tag_open_name base"); 
+					RESULT = TreeNode.createNode("Base"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	IMG             {: System.out.println("tag_open_name img"); 
+					RESULT = TreeNode.createNode("Img"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	HR              {: System.out.println("tag_open_name hr"); 
+					RESULT = TreeNode.createNode("Hr"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	META            {: System.out.println("tag_open_name meta"); 
+					RESULT = TreeNode.createNode("Meta"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	LINK            {: System.out.println("tag_open_name link"); 
+					RESULT = TreeNode.createNode("Link"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				;
+				
+							
+attribute_list ::= 	attribute:a attribute_list:al {: 
+						System.out.println("attribute_list declaration 1"); 
+						//RESULT = TreeNode.createNode("attribute_list 1", a, al);
+						RESULT = TreeNode.createNode(null, a, al);
+					:}
+				|	attribute:a	{: 
+						System.out.println("attribute_list declaration");
+						//RESULT = TreeNode.createNode("attribute_list 2", a);
+						RESULT = TreeNode.createNode(null, a);
+					:}			
+				;
+	
+attribute ::=	attribute_name:an ATTR_ASSIGN QUATATION_MARKS attribute_content:ac QUATATION_MARKS 
+				{: 
+					System.out.println("attribute declaration"); 
+					RESULT = TreeNode.createNode(an.getData() + " = \"" + ac.getData() + "\"", an, ac);
+				:}
+			;
+			
+attribute_content ::= STRING:s	{: System.out.println("attribute_content string"); 
+					RESULT = TreeNode.createNode("Text"); 
+					RESULT.setShouldBeDisplayed(false);:}
+					| NUMBER:n	{: System.out.println("attribute_content number");  
+					RESULT = TreeNode.createNode("Text"); 
+					RESULT.setShouldBeDisplayed(false);:}
+					;
+
+attribute_name ::= 	CLASS	{: System.out.println("attribute_name class");  
+					RESULT = TreeNode.createNode("Class"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ID		{: System.out.println("attribute_name id");  
+					RESULT = TreeNode.createNode("Id"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ALIGN	{: System.out.println("attribute_name align");  
+					RESULT = TreeNode.createNode("Align"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	STYLE	{: System.out.println("attribute_name style");  
+					RESULT = TreeNode.createNode("Style"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TABINDEX	{: System.out.println("attribute_name tabindex");  
+					RESULT = TreeNode.createNode("Tabindex"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONCLICK	{: System.out.println("attribute_name onclick");  
+					RESULT = TreeNode.createNode("Onclick"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONDBLCLICK	{: System.out.println("attribute_name ondblclick");  
+					RESULT = TreeNode.createNode("Ondblclick"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONMOUSEDOWN	{: System.out.println("attribute_name onmousedown");  
+					RESULT = TreeNode.createNode("Onmousedown"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONMOUSEUP	{: System.out.println("attribute_name onmouseup");  
+					RESULT = TreeNode.createNode("Onmouseup"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONMOUSEMOVE	{: System.out.println("attribute_name onmousemove");  
+					RESULT = TreeNode.createNode("Onmousemove"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONMOUSEOUT	{: System.out.println("attribute_name onmouseout");  
+					RESULT = TreeNode.createNode("Onmouseout"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONKEYPRESS	{: System.out.println("attribute_name onkeypress");  
+					RESULT = TreeNode.createNode("Onkeypress"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONKEYDOWN	{: System.out.println("attribute_name onkeydown");  
+					RESULT = TreeNode.createNode("Onkeydown"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONKEYUP	{: System.out.println("attribute_name onkeyup");  
+					RESULT = TreeNode.createNode("Onkeyup"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ACCESSKEY	{: System.out.println("attribute_name accesskey");  
+					RESULT = TreeNode.createNode("Accesskey"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONFOCUS	{: System.out.println("attribute_name onfocus");  
+					RESULT = TreeNode.createNode("Onfocus"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONBLUR	{: System.out.println("attribute_name onblur");  
+					RESULT = TreeNode.createNode("Onblur"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	HREF	{: System.out.println("attribute_name href");  
+					RESULT = TreeNode.createNode("Href"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONSUBMIT	{: System.out.println("attribute_name onsubmit");  
+					RESULT = TreeNode.createNode("Onsubmit"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	ONRESET	{: System.out.println("attribute_name onreset");  
+					RESULT = TreeNode.createNode("Onreset"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	TYPE	{: System.out.println("attribute_name type");  
+					RESULT = TreeNode.createNode("Type"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	HEIGHT	{: System.out.println("attribute_name height");  
+					RESULT = TreeNode.createNode("Height"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	WIDTH	{: System.out.println("attribute_name width");  
+					RESULT = TreeNode.createNode("Width"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				|	USEMAP	{: System.out.println("attribute_name usemap");  
+					RESULT = TreeNode.createNode("Usemap"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				| 	HTTPEQUIV {: System.out.println("attribute_name http_equiv");  
+					RESULT = TreeNode.createNode("Http_equiv"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				| 	XML_LANG {: System.out.println("attribute_name xml_lang");  
+					RESULT = TreeNode.createNode("Xml_lang"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				| 	ACCEPT_CHARSET {: System.out.println("attribute_name accept_charset");  
+					RESULT = TreeNode.createNode("Accept_charset"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				| 	XML_SPACE {: System.out.println("attribute_name xml_space");  
+					RESULT = TreeNode.createNode("Xml_space"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				| 	LANG {: System.out.println("attribute_name lang");  
+					RESULT = TreeNode.createNode("Lang"); 
+					RESULT.setShouldBeDisplayed(false);:}
+				;
+				
+				/* The grammar rules */
+expr_list ::= expr_list expr:e SEMI         {: System.out.println(e); :}
+            | expr:e SEMI                   {: System.out.println(e); :}
+            ;
+            
+expr      ::= expr:e1 PLUS  expr:e2         {: RESULT = e1+e2;        :}
+             | expr:e1 MINUS expr:e2        {: RESULT = e1-e2;        :}
+             | expr:e1 TIMES expr:e2        {: RESULT = e1*e2;        :}
+             | MINUS expr:e                 {: RESULT = -e;           :}
+             %prec UMINUS
+             | LPAREN expr:e RPAREN	         {: RESULT = e;           :}
+             | NUMBER:n	                     {: RESULT = n;           :}
+             ;

@@ -1,0 +1,12 @@
+<!DOCTYPE>
+<HTML>
+<body>
+	<h1 style="color:blue">
+		H1Test
+	</h1>
+	<p id="testid">
+		P7Test
+	</p>
+	<div class="test">DivTest <span> SpanTest </span></div>
+</body>
+</HTML>
